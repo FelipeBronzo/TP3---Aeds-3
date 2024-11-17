@@ -146,6 +146,8 @@ public class Serie {
         long dateInSeconds = dis.readLong();
         this.first_air_date = new Date(dateInSeconds);
     
+        @SuppressWarnings("unused")
+        int numCompanies = dis.readInt();
         
         this.companies = new ArrayList<>();
         String companiesString = dis.readUTF();

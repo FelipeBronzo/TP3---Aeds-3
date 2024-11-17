@@ -1,14 +1,13 @@
 package main;
-import java.io.IOException;
-import java.util.Scanner;
 
 import filemanager.SerieFileManager;
 import model.Serie;
-
-import java.util.ArrayList;
-import java.util.Date;
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Scanner;
 
 public class Main {
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
@@ -16,13 +15,13 @@ public class Main {
     public static void main(String[] args) {
         Scanner entrada = new Scanner(System.in);
         SerieFileManager fileManager = new SerieFileManager();
-
+    
         try {
             fileManager.carregarArquivo();
         } catch (IOException e) {
             System.out.println("Erro ao carregar o arquivo: " + e.getMessage());
         }
-
+    
         int operacao;
         do {
             System.out.println("\nEscolha a operação: ");
@@ -31,17 +30,16 @@ public class Main {
             System.out.println("3 - Atualizar");
             System.out.println("4 - Excluir");
             System.out.println("5 - Criar");
-            System.out.println("6 - Sair");
+            System.out.println("6 - Compactar Arquivo (Huffman)");
+            System.out.println("7 - Descompactar Arquivo (Huffman)");
+            System.out.println("8 - Sair");
             System.out.print("Operação: ");
             operacao = entrada.nextInt();
             entrada.nextLine();
-
+    
             try {
                 switch (operacao) {
-                    case 1 -> {
-                        fileManager.carregarArquivo();
-                        System.out.println("Arquivo de dados carregado e índice atualizado.");
-                    }
+                    case 1 -> fileManager.carregarArquivo();
                     case 2 -> {
                         System.out.print("ID da série para ler: ");
                         int id = entrada.nextInt();
@@ -51,38 +49,43 @@ public class Main {
                     case 3 -> {
                         System.out.print("ID da série para atualizar: ");
                         int id = entrada.nextInt();
-                        entrada.nextLine();  // Limpar o buffer
-                        
+                        entrada.nextLine(); // Limpar o buffer
                         Serie novaSerie = obterDadosSerie(id, entrada);
                         fileManager.atualizarSerie(id, novaSerie);
-                        System.out.println("Série atualizada e índice sincronizado.");
                     }
                     case 4 -> {
                         System.out.print("ID da série para excluir: ");
                         int id = entrada.nextInt();
                         fileManager.excluirSerie(id);
-                        System.out.println("Série excluída e índice atualizado.");
                     }
                     case 5 -> {
                         System.out.print("ID da série para criar: ");
                         int id = entrada.nextInt();
-                        entrada.nextLine();  // Limpar o buffer
-                        
+                        entrada.nextLine(); // Limpar o buffer
                         Serie novaSerie = obterDadosSerie(id, entrada);
                         fileManager.adicionarSerie(novaSerie);
-                        System.out.println("Série adicionada e índice atualizado.");
                     }
-                    case 6 -> System.out.println("Saindo...");
+                    case 6 -> {
+                        System.out.print("Versão para o arquivo comprimido: ");
+                        int versao = entrada.nextInt();
+                        fileManager.compactarArquivoHuffman(versao);
+                    }
+                    case 7 -> {
+                        System.out.print("Versão do arquivo a ser descomprimido: ");
+                        int versao = entrada.nextInt();
+                        fileManager.descompactarArquivoHuffman(versao);
+                    }
+                    case 8 -> System.out.println("Saindo...");
                     default -> System.out.println("Opção inválida. Tente novamente.");
                 }
             } catch (IOException e) {
                 System.out.println("Erro: " + e.getMessage());
             }
-        } while (operacao != 6);
-
+        } while (operacao != 8);
+    
         entrada.close();
     }
-
+    
     private static Serie obterDadosSerie(int id, Scanner entrada) {
         System.out.print("Nome da série: ");
         String name = entrada.nextLine();

@@ -1,11 +1,19 @@
 package filemanager;
 import java.io.*;
 
+
+import compressao.CompactadorHuffman;
+
 import model.Serie;
 
 public class SerieFileManager {
     private final String dbPath = "dados/series.db";
     private final String csvPath = "tvs.csv/tvs.csv";
+    private final CompactadorHuffman compactadorHuffman;
+
+    public SerieFileManager() {
+        this.compactadorHuffman = new CompactadorHuffman(); // Inicializa o compactador
+    }
 
     // Carrega os dados do CSV para o arquivo sequencial .db
     public void carregarArquivo() throws IOException {
@@ -125,4 +133,74 @@ public class SerieFileManager {
         }
         return false; // ID não encontrado
     }
+
+    public void compactarArquivoHuffman(int versao) throws IOException {
+        String arquivoComprimido = "dados/seriesHuffmanCompressao" + versao + ".huf";
+    
+        // Lê o conteúdo binário do arquivo sequencial
+        StringBuilder conteudo = new StringBuilder();
+        try (RandomAccessFile arq = new RandomAccessFile(dbPath, "r")) {
+            while (arq.getFilePointer() < arq.length()) {
+                boolean ativo = arq.readBoolean(); // Lê a lápide
+                int tamanhoRegistro = arq.readInt(); // Lê o tamanho do registro
+                byte[] registro = new byte[tamanhoRegistro];
+                arq.readFully(registro); // Lê o registro completo
+    
+                // Apenas registros ativos são considerados para compactação
+                if (ativo) {
+                    conteudo.append(new String(registro, "UTF-8")).append("\n");
+                }
+            }
+        }
+    
+        // Compacta o conteúdo usando Huffman
+        compactadorHuffman.construirArvore(conteudo.toString());
+        byte[] dadosCompactados = compactadorHuffman.compactar(conteudo.toString());
+    
+        // Salva a árvore de Huffman e os dados compactados no arquivo de saída
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(arquivoComprimido))) {
+            oos.writeObject(compactadorHuffman.getRaiz()); // Salva a raiz da árvore
+            oos.write(dadosCompactados); // Salva os dados compactados
+        }
+    
+        System.out.println("Arquivo compactado e salvo como: " + arquivoComprimido);
+    }
+    
+    public void descompactarArquivoHuffman(int versao) throws IOException {
+        String arquivoComprimido = "dados/seriesHuffmanCompressao" + versao + ".huf";
+        String arquivoDescompactado = dbPath;
+    
+        CompactadorHuffman.Nodo raiz;
+        byte[] dadosCompactados;
+    
+        // Lê a árvore de Huffman e os dados compactados
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(arquivoComprimido))) {
+            raiz = (CompactadorHuffman.Nodo) ois.readObject(); // Lê a raiz da árvore
+            dadosCompactados = ois.readAllBytes(); // Lê os dados compactados
+        } catch (ClassNotFoundException e) {
+            throw new IOException("Erro ao carregar a árvore de Huffman: " + e.getMessage());
+        }
+    
+        // Descompacta os dados
+        String dadosDescompactados = compactadorHuffman.descompactar(dadosCompactados, raiz);
+    
+        // Recria o arquivo sequencial no formato original
+        try (RandomAccessFile arq = new RandomAccessFile(arquivoDescompactado, "rw")) {
+            arq.setLength(0); // Limpa o arquivo existente
+    
+            // Processa os registros descompactados
+            String[] registros = dadosDescompactados.split("\n");
+            for (String registro : registros) {
+                byte[] registroBytes = registro.getBytes("UTF-8");
+    
+                arq.writeBoolean(true); // Lápide (marcar como ativo)
+                arq.writeInt(registroBytes.length); // Tamanho do registro
+                arq.write(registroBytes); // Dados do registro
+            }
+        }
+    
+        System.out.println("Arquivo descompactado e recriado como: " + arquivoDescompactado);
+    }
+    
+    
 }

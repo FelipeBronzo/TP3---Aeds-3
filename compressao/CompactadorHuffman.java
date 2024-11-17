@@ -1,126 +1,136 @@
 package compressao;
 
-import java.io.*;
+import java.io.Serializable;
 import java.util.*;
 
 public class CompactadorHuffman {
-    private Map<Character, String> charParaCodigo;
-    private Map<String, Character> codigoParaChar;
+    private Map<Character, String> tabelaDeCodigos; // Mapa para armazenar os códigos
+    private Nodo raiz; // Raiz da árvore de Huffman
 
-    public CompactadorHuffman() {
-        charParaCodigo = new HashMap<>();
-        codigoParaChar = new HashMap<>();
+    // Classe para representar os nós da árvore
+    public static class Nodo implements Comparable<Nodo>, Serializable {
+    private static final long serialVersionUID = 1L; // Adicione um ID para evitar problemas de versão
+    char caractere;
+    int frequencia;
+    Nodo esquerdo, direito;
+
+    Nodo(char caractere, int frequencia) {
+        this.caractere = caractere;
+        this.frequencia = frequencia;
     }
 
-    // Compactar um arquivo
-    public void compactarArquivo(String caminhoEntrada, String caminhoSaida) throws IOException {
-        StringBuilder conteudo = new StringBuilder();
-
-        // Lê o conteúdo do arquivo sequencial
-        try (BufferedReader leitor = new BufferedReader(new FileReader(caminhoEntrada))) {
-            String linha;
-            while ((linha = leitor.readLine()) != null) {
-                conteudo.append(linha).append("\n");
-            }
-        }
-
-        // Compactação
-        byte[] dadosCompactados = compactar(conteudo.toString());
-
-        // Escreve os dados compactados no arquivo de saída
-        try (FileOutputStream fos = new FileOutputStream(caminhoSaida)) {
-            fos.write(dadosCompactados);
-        }
-
-        System.out.println("Compactação concluída. Arquivo salvo em: " + caminhoSaida);
+    Nodo(Nodo esquerdo, Nodo direito) {
+        this.caractere = '\0'; // Nó intermediário
+        this.frequencia = esquerdo.frequencia + direito.frequencia;
+        this.esquerdo = esquerdo;
+        this.direito = direito;
     }
 
-    // Descompactar um arquivo
-    public void descompactarArquivo(String caminhoEntrada, String caminhoSaida) throws IOException {
-        byte[] dadosCompactados;
+    @Override
+    public int compareTo(Nodo outro) {
+        return Integer.compare(this.frequencia, outro.frequencia);
+    }
+}
 
-        // Lê os dados compactados do arquivo
-        try (FileInputStream fis = new FileInputStream(caminhoEntrada)) {
-            dadosCompactados = fis.readAllBytes();
+    
+
+    public void construirArvore(String texto) {
+        // Calcula as frequências dos caracteres
+        Map<Character, Integer> frequencias = new HashMap<>();
+        for (char c : texto.toCharArray()) {
+            frequencias.put(c, frequencias.getOrDefault(c, 0) + 1);
         }
-
-        // Descompactação
-        String dadosDescompactados = descompactar(dadosCompactados);
-
-        // Escreve os dados descompactados no arquivo de saída
-        try (BufferedWriter escritor = new BufferedWriter(new FileWriter(caminhoSaida))) {
-            escritor.write(dadosDescompactados);
+    
+        // Cria uma fila de prioridade para construir a árvore
+        PriorityQueue<Nodo> fila = new PriorityQueue<>();
+        for (var entrada : frequencias.entrySet()) {
+            fila.add(new Nodo(entrada.getKey(), entrada.getValue()));
         }
-
-        System.out.println("Descompactação concluída. Arquivo salvo em: " + caminhoSaida);
+    
+        // Constrói a árvore de Huffman
+        while (fila.size() > 1) {
+            Nodo esquerdo = fila.poll();
+            Nodo direito = fila.poll();
+            fila.add(new Nodo(esquerdo, direito));
+        }
+    
+        raiz = fila.poll(); // Define a raiz da árvore
+        tabelaDeCodigos = new HashMap<>();
+        construirTabelaDeCodigos(raiz, "");
+    }
+    
+    // Método recursivo para construir os códigos binários
+    private void construirTabelaDeCodigos(Nodo nodo, String codigo) {
+        if (nodo.esquerdo == null && nodo.direito == null) {
+            tabelaDeCodigos.put(nodo.caractere, codigo);
+            return;
+        }
+        construirTabelaDeCodigos(nodo.esquerdo, codigo + "0");
+        construirTabelaDeCodigos(nodo.direito, codigo + "1");
     }
 
-    // Método principal de compactação
     public byte[] compactar(String texto) {
-        // Passo 1: Construir o mapa de frequências
-        Map<Character, Integer> mapaFrequencias = new HashMap<>();
-        for (char ch : texto.toCharArray()) {
-            mapaFrequencias.put(ch, mapaFrequencias.getOrDefault(ch, 0) + 1);
-        }
-
-        // Passo 2: Construir a árvore de Huffman
-        PriorityQueue<Nodo> filaPrioridade = new PriorityQueue<>();
-        for (var entrada : mapaFrequencias.entrySet()) {
-            filaPrioridade.add(new Nodo(entrada.getKey(), entrada.getValue()));
-        }
-
-        while (filaPrioridade.size() > 1) {
-            Nodo esquerdo = filaPrioridade.poll();
-            Nodo direito = filaPrioridade.poll();
-            filaPrioridade.add(new Nodo(esquerdo, direito));
-        }
-
-        Nodo raiz = filaPrioridade.poll();
-        construirCodigo(raiz, "");
-
-        // Passo 3: Converter o texto para o código binário
+        construirArvore(texto);
+    
         StringBuilder textoCodificado = new StringBuilder();
-        for (char ch : texto.toCharArray()) {
-            textoCodificado.append(charParaCodigo.get(ch));
+        for (char c : texto.toCharArray()) {
+            textoCodificado.append(tabelaDeCodigos.get(c));
         }
-
-        // Retornar os dados compactados como bytes
-        return textoCodificado.toString().getBytes();
+    
+        // Converte o texto codificado para bytes
+        List<Byte> bytes = new ArrayList<>();
+        for (int i = 0; i < textoCodificado.length(); i += 8) {
+            String byteString = textoCodificado.substring(i, Math.min(i + 8, textoCodificado.length()));
+            bytes.add((byte) Integer.parseInt(byteString, 2));
+        }
+    
+        byte[] resultado = new byte[bytes.size()];
+        for (int i = 0; i < bytes.size(); i++) {
+            resultado[i] = bytes.get(i);
+        }
+        return resultado;
     }
+    
 
-    // Método principal de descompactação
-    public String descompactar(byte[] dadosCompactados) {
+    public String descompactar(byte[] dadosCompactados, Nodo raiz) {
         StringBuilder textoDecodificado = new StringBuilder();
-        Nodo raiz = construirArvoreAPartirDoCodigo();
+    
+        // Converte os bytes de volta para uma string binária
+        StringBuilder codigoBinario = new StringBuilder();
+        for (byte b : dadosCompactados) {
+            codigoBinario.append(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
+        }
+    
+        // Decodifica o texto usando a árvore de Huffman
         Nodo atual = raiz;
-
-        String bits = new String(dadosCompactados);
-        for (char bit : bits.toCharArray()) {
+        for (char bit : codigoBinario.toString().toCharArray()) {
             atual = (bit == '0') ? atual.esquerdo : atual.direito;
-
             if (atual.esquerdo == null && atual.direito == null) {
                 textoDecodificado.append(atual.caractere);
                 atual = raiz;
             }
         }
-
+    
         return textoDecodificado.toString();
     }
+    
+    
 
-    // Métodos auxiliares
-    private void construirCodigo(Nodo nodo, String s) {
-        if (nodo.esquerdo == null && nodo.direito == null) {
-            charParaCodigo.put(nodo.caractere, s);
-            codigoParaChar.put(s, nodo.caractere);
-            return;
-        }
-        construirCodigo(nodo.esquerdo, s + "0");
-        construirCodigo(nodo.direito, s + "1");
+    public Map<Character, String> getTabelaDeCodigos() {
+        return tabelaDeCodigos;
+    }
+    
+    public void setTabelaDeCodigos(Map<Character, String> tabelaDeCodigos) {
+        this.tabelaDeCodigos = tabelaDeCodigos;
     }
 
-    private Nodo construirArvoreAPartirDoCodigo() {
+    public Nodo reconstruirArvore() {
+        if (tabelaDeCodigos == null || tabelaDeCodigos.isEmpty()) {
+            throw new IllegalStateException("Tabela de códigos está vazia ou não foi carregada.");
+        }
+    
         Nodo raiz = new Nodo(null, null);
-        for (var entrada : charParaCodigo.entrySet()) {
+        for (var entrada : tabelaDeCodigos.entrySet()) {
             Nodo atual = raiz;
             for (char bit : entrada.getValue().toCharArray()) {
                 if (bit == '0') {
@@ -135,28 +145,10 @@ public class CompactadorHuffman {
         }
         return raiz;
     }
-
-    // Classe auxiliar para a árvore de Huffman
-    private static class Nodo implements Comparable<Nodo> {
-        char caractere;
-        int frequencia;
-        Nodo esquerdo, direito;
-
-        Nodo(char caractere, int frequencia) {
-            this.caractere = caractere;
-            this.frequencia = frequencia;
-        }
-
-        Nodo(Nodo esquerdo, Nodo direito) {
-            this.esquerdo = esquerdo;
-            this.direito = direito;
-            this.frequencia = esquerdo.frequencia + direito.frequencia;
-        }
-
-        @Override
-        public int compareTo(Nodo outro) {
-            return Integer.compare(this.frequencia, outro.frequencia);
-        }
+    
+    public Nodo getRaiz() {
+        return raiz;
     }
+    
+    
 }
-
