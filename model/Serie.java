@@ -1,3 +1,4 @@
+package model;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -8,7 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 
-class Serie {
+public class Serie {
     private int id; 
     private String name;
     private String language;
@@ -145,7 +146,7 @@ class Serie {
         long dateInSeconds = dis.readLong();
         this.first_air_date = new Date(dateInSeconds);
     
-        int numCompanies = dis.readInt();
+        
         this.companies = new ArrayList<>();
         String companiesString = dis.readUTF();
         String[] companiesArray = companiesString.split(",");

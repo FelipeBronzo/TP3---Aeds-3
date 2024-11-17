@@ -1,5 +1,10 @@
+package main;
 import java.io.IOException;
 import java.util.Scanner;
+
+import filemanager.SerieFileManager;
+import model.Serie;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.text.ParseException;
