@@ -7,6 +7,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
@@ -32,7 +33,13 @@ public class Main {
             System.out.println("5 - Criar");
             System.out.println("6 - Compactar Arquivo (Huffman)");
             System.out.println("7 - Descompactar Arquivo (Huffman)");
-            System.out.println("8 - Sair");
+            System.out.println("8 - Compactar Arquivo (LZW)");
+            System.out.println("9 - Descompactar Arquivo (LZW)");
+            System.out.println("10 - Buscar por padrão (KMP)");
+            System.out.println("11 - Buscar por padrão (Boyer-Moore)");
+            System.out.println("12 - Sair");
+
+
             System.out.print("Operação: ");
             operacao = entrada.nextInt();
             entrada.nextLine();
@@ -75,13 +82,56 @@ public class Main {
                         int versao = entrada.nextInt();
                         fileManager.descompactarArquivoHuffman(versao);
                     }
-                    case 8 -> System.out.println("Saindo...");
-                    default -> System.out.println("Opção inválida. Tente novamente.");
+                    case 8 -> {
+                        System.out.print("Versão para o arquivo comprimido (LZW): ");
+                        int versao = entrada.nextInt();
+                        fileManager.compactarArquivoLZW(versao);
+                    }
+                    case 9 -> {
+                        System.out.print("Versão do arquivo a ser descomprimido (LZW): ");
+                        int versao = entrada.nextInt();
+                        fileManager.descompactarArquivoLZW(versao);
+                    }
+                    case 10 -> {
+                        System.out.print("Campo para busca (name, language, companies): ");
+                        String campo = entrada.nextLine();
+                    
+                        System.out.print("Padrão a buscar: ");
+                        String padrao = entrada.nextLine();
+                    
+                        try {
+                            List<Serie> resultados = fileManager.buscarPorPadrao(campo, padrao, "kmp");
+                            System.out.println(resultados.isEmpty() ? "Nenhum resultado encontrado." : resultados);
+                        } catch (IllegalArgumentException e) {
+                            System.out.println(e.getMessage());
+                        }
+                    }
+                    
+                    case 11 -> {
+                        System.out.print("Campo para busca (name, language, companies): ");
+                        String campo = entrada.nextLine();
+                    
+                        System.out.print("Padrão a buscar: ");
+                        String padrao = entrada.nextLine();
+                    
+                        try {
+                            List<Serie> resultados = fileManager.buscarPorPadrao(campo, padrao, "boyer-moore");
+                            System.out.println(resultados.isEmpty() ? "Nenhum resultado encontrado." : resultados);
+                        } catch (IllegalArgumentException e) {
+                            System.out.println(e.getMessage());
+                        }
+                    }
+                    
+
+                    case 12 -> {
+                        System.out.println("Saindo...");
+                    }
+
                 }
             } catch (IOException e) {
                 System.out.println("Erro: " + e.getMessage());
             }
-        } while (operacao != 8);
+        } while (operacao != 11);
     
         entrada.close();
     }

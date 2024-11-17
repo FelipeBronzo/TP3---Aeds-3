@@ -1,9 +1,12 @@
 package filemanager;
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
-
+import casamentodepadroes.BoyerMoore;
+import casamentodepadroes.KMP;
 import compressao.CompactadorHuffman;
-
+import compressao.CompactadorLZW;
 import model.Serie;
 
 public class SerieFileManager {
@@ -134,6 +137,7 @@ public class SerieFileManager {
         return false; // ID não encontrado
     }
 
+    // Compressão Huffman
     public void compactarArquivoHuffman(int versao) throws IOException {
         String arquivoComprimido = "dados/seriesHuffmanCompressao" + versao + ".huf";
     
@@ -165,7 +169,8 @@ public class SerieFileManager {
     
         System.out.println("Arquivo compactado e salvo como: " + arquivoComprimido);
     }
-    
+
+    // Descompressão Huffman
     public void descompactarArquivoHuffman(int versao) throws IOException {
         String arquivoComprimido = "dados/seriesHuffmanCompressao" + versao + ".huf";
         String arquivoDescompactado = dbPath;
@@ -202,5 +207,101 @@ public class SerieFileManager {
         System.out.println("Arquivo descompactado e recriado como: " + arquivoDescompactado);
     }
     
+    // Compressão usando LZW
+    public void compactarArquivoLZW(int versao) throws IOException {
+        String arquivoComprimido = "dados/seriesLZWCompressao" + versao + ".lzw";
+    
+        // Lê o conteúdo do arquivo sequencial
+        StringBuilder conteudo = new StringBuilder();
+        try (RandomAccessFile arq = new RandomAccessFile(dbPath, "r")) {
+            while (arq.getFilePointer() < arq.length()) {
+                boolean ativo = arq.readBoolean();
+                int tamanhoRegistro = arq.readInt();
+                byte[] registro = new byte[tamanhoRegistro];
+                arq.readFully(registro);
+    
+                if (ativo) {
+                    conteudo.append(new String(registro, "UTF-8")).append("\n");
+                }
+            }
+        }
+    
+        CompactadorLZW compactadorLZW = new CompactadorLZW();
+        byte[] dadosCompactados = compactadorLZW.compactar(conteudo.toString());
+    
+        // Salva os dados compactados no arquivo
+        try (FileOutputStream fos = new FileOutputStream(arquivoComprimido)) {
+            fos.write(dadosCompactados);
+        }
+    
+        System.out.println("Arquivo compactado e salvo como: " + arquivoComprimido);
+    }
+    
+    // Descompressão LZW
+    public void descompactarArquivoLZW(int versao) throws IOException {
+        String arquivoComprimido = "dados/seriesLZWCompressao" + versao + ".lzw";
+        String arquivoDescompactado = dbPath;
+    
+        // Lê os dados compactados
+        byte[] dadosCompactados;
+        try (FileInputStream fis = new FileInputStream(arquivoComprimido)) {
+            dadosCompactados = fis.readAllBytes();
+        }
+    
+        CompactadorLZW compactadorLZW = new CompactadorLZW();
+        String dadosDescompactados = compactadorLZW.descompactar(dadosCompactados);
+    
+        // Recria o arquivo sequencial no formato original
+        try (RandomAccessFile arq = new RandomAccessFile(arquivoDescompactado, "rw")) {
+            arq.setLength(0);
+            String[] registros = dadosDescompactados.split("\n");
+            for (String registro : registros) {
+                byte[] registroBytes = registro.getBytes("UTF-8");
+                arq.writeBoolean(true);
+                arq.writeInt(registroBytes.length);
+                arq.write(registroBytes);
+            }
+        }
+    
+        System.out.println("Arquivo descompactado e recriado como: " + arquivoDescompactado);
+    }
+
+    // Casamento de Padrões
+    public List<Serie> buscarPorPadrao(String campo, String padrao, String algoritmo) throws IOException {
+        List<Serie> resultados = new ArrayList<>();
+        try (RandomAccessFile arq = new RandomAccessFile(dbPath, "r")) {
+            while (arq.getFilePointer() < arq.length()) {
+                boolean ativo = arq.readBoolean();
+                int tamanhoRegistro = arq.readInt();
+                byte[] ba = new byte[tamanhoRegistro];
+                arq.readFully(ba);
+
+                if (ativo) {
+                    Serie serie = new Serie();
+                    serie.fromByteArray(ba);
+
+                    // Buscar no campo especificado
+                    String texto = switch (campo.toLowerCase()) {
+                        case "name" -> serie.getName();
+                        case "language" -> serie.getLanguage();
+                        case "companies" -> String.join(", ", serie.getCompanies());
+                        default -> throw new IllegalArgumentException("Campo inválido: " + campo);
+                    };
+
+                    // Escolha do algoritmo
+                    boolean encontrado = switch (algoritmo.toLowerCase()) {
+                        case "kmp" -> KMP.search(texto, padrao);
+                        case "boyer-moore" -> BoyerMoore.search(texto, padrao);
+                        default -> throw new IllegalArgumentException("Algoritmo inválido: " + algoritmo);
+                    };
+
+                    if (encontrado) {
+                        resultados.add(serie);
+                    }
+                }
+            }
+        }
+        return resultados;
+    }
     
 }
